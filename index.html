@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Météo Secrète</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;700&display=swap" rel="stylesheet">
+    <!-- Intègre la librairie MQTT.js pour la communication en temps réel -->
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+</head>
+<body>
+
+    <header>
+        <h1>Météo Secrète</h1>
+    </header>
+
+    <main>
+        <div id="meteo-card">
+            <div class="icon-repl" id="icon">☀️</div>
+            <div>
+                <p id="temps">25°C</p>
+                <p class="location">Paris</p>
+            </div>
+            <p class="desc">Ensoleillé</p>
+        </div>
+        <div id="secret-meteo-card" class="hidden-alert">
+            <p class="alert-title">Alerte Météo</p>
+            <p class="alert-message">Un changement important a été détecté !</p>
+        </div>
+    </main>
+
+    <p id="hiddenMessage"></p>
+
+    <!-- Fichier de script mis à jour pour le support de MQTT -->
+    <script src="script.js"></script>
+    
+    <!-- Script pour la gestion du mode sombre -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)');
+            if (prefersDark.matches) {
+                document.body.classList.add('dark-mode');
+            }
+            prefersDark.addEventListener('change', (e) => {
+                if (e.matches) {
+                    document.body.classList.add('dark-mode');
+                } else {
+                    document.body.classList.remove('dark-mode');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

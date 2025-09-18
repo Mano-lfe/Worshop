@@ -1,0 +1,190 @@
+/* style.css — adapté au HTML fourni, avec un design de type Glassmorphism */
+
+:root {
+  --bg-start: #11a3b8; /* Bleu-vert clair */
+  --bg-end: #0f6c82; /* Bleu-vert foncé */
+  --card-bg: rgba(255, 255, 255, 0.25);
+  --card-border: rgba(255, 255, 255, 0.2);
+  --primary: #ffffff;
+  --secondary: #f0f0f0;
+  --muted: #e0e0e0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+  color: var(--primary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 28px 16px;
+  background-image: linear-gradient(135deg, var(--bg-start), var(--bg-end));
+  background-attachment: fixed;
+}
+
+/* header simple */
+header {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+header h1 {
+  margin: 0;
+  text-transform: capitalize;
+  font-size: 2.2rem;
+  color: var(--primary);
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+/* contenu principal centré */
+main {
+  width: 100%;
+  max-width: 720px;
+}
+
+/* container météo avec effet "verre dépoli" */
+div[id^="meteo"] {
+  background: var(--card-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 
+    0 4px 15px rgba(0, 0, 0, 0.1),
+    0 10px 30px rgba(0, 0, 0, 0.08);
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  justify-content: flex-start;
+  margin-bottom: 20px;
+  transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+  border: 1px solid var(--card-border);
+}
+
+div[id^="meteo"]:hover {
+  transform: translateY(-5px);
+  box-shadow: 
+    0 6px 20px rgba(0, 0, 0, 0.15),
+    0 15px 40px rgba(0, 0, 0, 0.12);
+}
+
+/* icône météo */
+.icon-repl {
+  width: 110px;
+  height: 110px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 64px;
+  border-radius: 16px;
+  background: var(--card-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 
+    inset 0 2px 4px rgba(255,255,255,0.2),
+    0 4px 10px rgba(0,0,0,0.1);
+  border: 1px solid var(--card-border);
+  user-select: none;
+}
+
+/* meta température */
+#temps {
+  font-size: 2.5rem;
+  color: var(--primary);
+  margin: 0;
+  font-weight: 700;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+}
+
+.location {
+  font-size: 1rem;
+  color: var(--muted);
+  margin: 0;
+  font-weight: 400;
+}
+
+/* description texte */
+.desc {
+  color: var(--muted);
+  font-size: 1rem;
+  margin-left: auto;
+  text-align: right;
+  font-weight: 500;
+}
+
+/* Styles pour la carte d'alerte météo secrète */
+#secret-meteo-card {
+  background: rgba(255, 237, 237, 0.5);
+  backdrop-filter: blur(10px);
+  border: 2px solid rgba(239, 68, 68, 0.5);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 
+    0 4px 15px rgba(239, 68, 68, 0.2),
+    0 10px 30px rgba(239, 68, 68, 0.15);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  margin-top: 20px;
+  transition: transform 0.5s ease-in-out, opacity 0.5s ease-in-out;
+}
+
+.alert-title {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 0 0 10px 0;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+}
+
+.alert-message {
+  font-size: 1.2rem;
+  color: var(--secondary);
+  font-weight: 500;
+  margin: 0;
+}
+
+.alert-icon {
+  margin-top: 15px;
+}
+
+/* Classes pour cacher/montrer l'alerte avec une animation */
+.hidden-alert {
+  transform: scale(0.8);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.show-alert {
+  transform: scale(1);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* responsive */
+@media (max-width: 420px) {
+  .icon-repl {
+    width: 80px;
+    height: 80px;
+    font-size: 48px;
+  }
+
+  #temps {
+    font-size: 2rem;
+  }
+
+  header h1 {
+    font-size: 1.8rem;
+  }
+}
