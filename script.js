@@ -1,4 +1,4 @@
-/* script.js — gère la logique de la page web, maintenant avec le support de MQTT */
+/* script.js — logique de la page, avec MQTT robuste (WS/WSS, PIR mapping, JSON) */
 
 const weatherKey = {
   "sun": "MISSION_OK",
@@ -17,12 +17,18 @@ const icons = {
 };
 
 const tempRanges = {
-  "sun": { min: 25, max: 35 },
+  "sun":   { min: 25, max: 35 },
   "cloud": { min: 15, max: 25 },
-  "rain": { min: 10, max: 20 },
+  "rain":  { min: 10, max: 20 },
   "storm": { min: 18, max: 28 },
-  "snow": { min: -5, max: 5 }
+  "snow":  { min: -5, max: 5 }
 };
+
+function midTempOf(type, fallback = 25) {
+  const r = tempRanges[type];
+  if (!r) return fallback;
+  return Math.round((r.min + r.max) / 2);
+}
 
 function decodeTempToDetail(temp) {
   const n = parseInt(String(temp).replace(/[^\d]/g,''), 10);
@@ -33,7 +39,7 @@ function decodeTempToDetail(temp) {
 function renderWeather(type, tempValue) {
   const container = document.querySelector('div[id^="meteo"]');
   if (!container) return;
-  
+
   let iconEl = document.getElementById('icon');
   if (!iconEl) {
     const repl = document.createElement('div');
@@ -68,7 +74,7 @@ function renderWeather(type, tempValue) {
     container.appendChild(descEl);
   }
   descEl.textContent = descriptions[type] || 'Clair';
-  
+
   const alertCard = document.getElementById('secret-meteo-card');
   if (type === 'rain' && alertCard) {
     alertCard.classList.remove('hidden-alert');
@@ -96,58 +102,120 @@ function decodeHiddenMessage(encoded) {
 }
 
 (function init() {
-  // Paramètres du broker MQTT
+  // ----- Paramètres broker/topic -----
   const mqttServer = 'broker.hivemq.com';
-  const mqttTopic = 'home/esp32s3/pir/mouvement';
+  const mqttTopic  = 'home/esp32s3/pir/mouvement';
 
-  // Connexion au broker MQTT
-  const client = mqtt.connect(`ws://${mqttServer}:8000/mqtt`);
+  // Auto WS/WSS selon le contexte
+  const isHttps = location.protocol === 'https:';
+  const url = isHttps
+    ? `wss://${mqttServer}:8884/mqtt`
+    : `ws://${mqttServer}:8000/mqtt`;
+
+  if (typeof mqtt === 'undefined') {
+    console.error('MQTT.js non chargé. Ajoute <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script> dans ton HTML.');
+    return;
+  }
+
+  // ----- Connexion MQTT -----
+  const client = mqtt.connect(url, {
+    clientId: 'web_' + Math.random().toString(16).slice(2,10),
+    clean: true,
+    reconnectPeriod: 2000
+  });
 
   client.on('connect', function () {
-    console.log('Connecté au broker MQTT !');
+    console.log('Connecté au broker MQTT :', url);
     client.subscribe(mqttTopic, function (err) {
-      if (!err) {
-        console.log("Abonné au topic: " + mqttTopic);
-      }
+      if (err) console.error('Subscribe error:', err);
+      else console.log('Abonné au topic:', mqttTopic);
     });
   });
 
+  client.on('reconnect', () => console.log('MQTT: reconnexion…'));
+  client.on('error',     (e) => console.error('MQTT error:', e?.message || e));
+  client.on('close',     () => console.warn('MQTT: connexion fermée'));
+
+  // ----- Réception -----
   client.on('message', function (topic, message) {
-    // Message reçu du broker
-    const payload = message.toString();
-    console.log("Message reçu sur le topic " + topic + ": " + payload);
+    const payload = (message?.toString?.() || '').trim();
+    if (!payload) return;
 
-    // Analyse le message "rain-25"
-    if (payload && payload.includes('-')) {
-      const [weatherType, tempStr] = payload.split('-');
-      const tempVal = parseInt(tempStr, 10);
-      
-      // Met à jour la page avec les nouvelles données
-      renderWeather(weatherType, tempVal);
-      const hidden = createHiddenMessage(weatherType, tempVal);
-      document.getElementById('hiddenMessage').textContent = hidden;
+    console.log(`Message reçu [${topic}] :`, payload);
+
+    let weatherType = '';
+    let tempVal = NaN;
+
+    // 1) Mapping des messages PIR → météo
+    if (payload === 'MOUVEMENT') {
+      weatherType = 'storm';                  // mouvement = orage / alerte
+      tempVal     = midTempOf('storm', 25);
+    } else if (payload === 'PAS_DE_MOUVEMENT') {
+      weatherType = 'sun';                    // calme = ensoleillé
+      tempVal     = midTempOf('sun', 25);
     }
-  });
-
-  // Raccourci clavier silencieux : Shift+M pour révéler (prototype)
-  window.addEventListener('keydown', function(e) {
-    if (e.shiftKey && (e.key === 'M' || e.key === 'm')) {
-      const pass = prompt("Entrez la clé pour décrypter le message:");
-      if (!pass) return;
-      if (pass.trim() !== 'Q-KEY') {
-        alert("Accès refusé.");
+    // 2) Format déjà météo: "rain-25"
+    else if (payload.includes('-')) {
+      const [w, t] = payload.split('-');
+      weatherType = (w || '').trim();
+      tempVal     = parseInt((t || '').trim(), 10);
+    }
+    // 3) JSON générique {"motion":1,"temp":23}
+    else {
+      try {
+        const obj = JSON.parse(payload);
+        if ('motion' in obj) {
+          const isMove = !!obj.motion;
+          weatherType = isMove ? 'storm' : 'sun';
+        }
+        if (Number.isFinite(obj?.temp)) {
+          tempVal = parseInt(obj.temp, 10);
+        }
+        if (!Number.isFinite(tempVal)) {
+          tempVal = midTempOf(weatherType || 'sun', 25);
+        }
+      } catch {
+        // inconnu -> on ignore poliment
+        console.warn('Payload non reconnu, ignoré:', payload);
         return;
       }
-      const encoded = document.getElementById('hiddenMessage').textContent;
-      const decoded = decodeHiddenMessage(encoded);
-      if (!decoded) {
-        alert("Rien à afficher.");
-      } else {
-        alert(decoded.meaning);
-      }
+    }
+
+    if (!weatherType || !Number.isFinite(tempVal)) {
+      console.warn('Payload mal formé, ignoré:', payload);
+      return;
+    }
+
+    // 4) Mise à jour UI
+    if (typeof renderWeather === 'function') {
+      renderWeather(weatherType, tempVal);
+    }
+    if (typeof createHiddenMessage === 'function') {
+      const hidden = createHiddenMessage(weatherType, tempVal);
+      const node = document.getElementById('hiddenMessage');
+      if (node) node.textContent = hidden;
     }
   });
 
-  // Initialisation au chargement de la page avec un état par défaut
-  renderWeather('sun', 25);
+  // ----- Raccourci clavier : Shift+M pour “décrypter” -----
+  window.addEventListener('keydown', function(e) {
+    if (!(e.shiftKey && (e.key === 'M' || e.key === 'm'))) return;
+    const pass = prompt("Entrez la clé pour décrypter le message:");
+    if (!pass) return;
+    if (pass.trim() !== 'Q-KEY') { alert("Accès refusé."); return; }
+
+    const node = document.getElementById('hiddenMessage');
+    const encoded = node ? node.textContent : '';
+    if (!encoded) { alert("Rien à afficher."); return; }
+
+    if (typeof decodeHiddenMessage === 'function') {
+      const decoded = decodeHiddenMessage(encoded);
+      alert(decoded?.meaning || 'Décodage OK (mais rien à afficher)');
+    } else {
+      alert('decodeHiddenMessage non défini.');
+    }
+  });
+
+  // ----- État par défaut -----
+  renderWeather('sun', midTempOf('sun', 25));
 })();
